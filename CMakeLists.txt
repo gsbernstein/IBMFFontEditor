@@ -78,6 +78,8 @@ set(PROJECT_SOURCES
         fix16Delegate.h
         linkedGlyphs.h
         linkedGlyphs.cpp
+        Unicode/UnicodeNames.hpp
+        Unicode/UnicodeNames.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

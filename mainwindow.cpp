@@ -8,6 +8,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QTextStream>
+#include <QTimer>
 
 #include "./ui_mainwindow.h"
 #include "IBMFDriver/IBMFHexImport.hpp"
@@ -19,6 +20,7 @@
 #include "pasteSelectionCommand.h"
 #include "showResultDialog.h"
 #include "ttfFontParameterDialog.h"
+#include "Unicode/UnicodeNames.hpp"
 
 //#define TRACE(str) std::cout << str << std::endl;
 #define TRACE(str)
@@ -211,6 +213,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
   show();
   qApp->installEventFilter(this);
   grabKeyboard();
+
+  QTimer::singleShot(0, this, [this] {
+    QSettings   settings("ibmf", "IBMFEditor");
+    QStringList recentFilePaths = settings.value("recentFiles").toStringList();
+    if (!recentFilePaths.isEmpty() && QFile::exists(recentFilePaths.first())) {
+      openFont(recentFilePaths.first());
+    }
+  });
 }
 
 MainWindow::~MainWindow() {
@@ -247,7 +257,10 @@ void MainWindow::updateCharactersList() {
             }
             item->setData(Qt::EditRole, QChar(codePoint));
         }
-        item->setToolTip(QString("%1: U+%2").arg(idx).arg(uint(codePoint), 5, 16, QChar('0')));
+        item->setToolTip(QString("%1: U+%2 %3")
+                             .arg(idx)
+                             .arg(uint(codePoint), 5, 16, QChar('0'))
+                             .arg(unicodeName(codePoint)));
         item->setData(Qt::EditRole, QChar(codePoint));
       } else {
         item->setFlags(Qt::NoItemFlags);
@@ -363,12 +376,13 @@ void MainWindow::readSettings() {
   }
 
   ui->plainTextEdit->setPlainText(settings.value("ProofingText").toString());
-  ui->actionPropagate_Linked_Glyphs->setChecked(
-      settings.value("PropagateLinkedGlyphs", true).toBool());
   ui->autoKernCheckBox->setChecked(settings.value("ProofingOpticalKern").toBool());
   ui->normalKernCheckBox->setChecked(settings.value("ProofingNormalKern").toBool());
   ui->pixelSizeCombo->setCurrentIndex(settings.value("ProofingPixelSize").toInt());
   settings.endGroup();
+
+  ui->actionPropagate_Linked_Glyphs->setChecked(
+      settings.value("PropagateLinkedGlyphs", true).toBool());
 }
 
 void MainWindow::adjustRecentsForCurrentFile() {
@@ -943,6 +957,11 @@ bool MainWindow::loadGlyph(uint16_t glyphCode) {
 
       char32_t codePoint = ibmfFont_->getUTF32(glyphCode);
       ui->currentCodePoint->setText(QString("U+%1").arg(uint(codePoint), 5, 16, QChar('0')));
+      ui->currentCodePoint->setToolTip(unicodeName(codePoint));
+      ui->statusbar->showMessage(QString("%1  U+%2  %3")
+                                     .arg(QString::fromUcs4(&codePoint, 1))
+                                     .arg(uint(codePoint), 4, 16, QChar('0'))
+                                     .arg(unicodeName(codePoint)));
 
       centerScrollBarPos();
       bitmapRenderer_->clearAndLoadBitmap(glyphCode, *bitmap, *ibmfFaceHeader_, *glyphInfo);
@@ -1795,11 +1814,15 @@ void MainWindow::on_actionPropagate_From_Reference_triggered() {
   saveGlyph();
 
   releaseKeyboard();
-  QString referencePath = QFileDialog::getOpenFileName(
+  QSettings settings("ibmf", "IBMFEditor");
+  QString   lastReference = settings.value("LastReferenceFont").toString();
+  QString   referencePath = QFileDialog::getOpenFileName(
       this, "Reference IBMF Font (the font before your edits)",
-      QFileInfo(currentFilePath_).absolutePath(), "*.ibmf");
+      QFile::exists(lastReference) ? lastReference : QFileInfo(currentFilePath_).absolutePath(),
+      "*.ibmf");
   grabKeyboard();
   if (referencePath.isEmpty()) return;
+  settings.setValue("LastReferenceFont", referencePath);
 
   QFile file(referencePath);
   if (!file.open(QIODevice::ReadOnly)) {
@@ -1825,26 +1848,32 @@ void MainWindow::on_actionPropagate_From_Reference_triggered() {
 
 void MainWindow::reviewLinkedProposals(std::vector<LinkedGlyphProposal> proposals,
                                        const QString &title) {
-  releaseKeyboard();
-  LinkedGlyphsDialog dialog(std::move(proposals), ibmfFont_, title, this);
-  bool               accepted = dialog.exec() == QDialog::Accepted;
-  grabKeyboard();
-  if (!accepted) return;
-
-  auto selected        = dialog.selectedProposals();
-  bool touchedCurrent  = false;
   bool backupAvailable = (ibmfBackup_ != nullptr) && ibmfBackup_->isInitialized();
-  for (auto &p : selected) {
-    if (!ibmfFont_->saveGlyph(p.faceIdx, p.glyphCode, p.newInfo, p.newBitmap, p.ligKern)) {
+  int  appliedCount    = 0;
+  bool touchedCurrent  = false;
+
+  auto apply = [&](const LinkedGlyphProposal &p) -> bool {
+    BitmapPtr    bitmap;
+    GlyphInfoPtr info;
+    if (!p.build(bitmap, info) ||
+        !ibmfFont_->saveGlyph(p.faceIdx, p.glyphCode, info, bitmap, p.ligKern)) {
       QMessageBox::critical(this, "CRITICAL ERROR", "Unable to save Glyph modification into Font!");
-      continue;
+      return false;
     }
     if (backupAvailable) {
-      ibmfBackup_->saveGlyph(p.faceIdx, p.glyphCode, p.newInfo, p.newBitmap, p.ligKern, ibmfFont_);
+      ibmfBackup_->saveGlyph(p.faceIdx, p.glyphCode, info, bitmap, p.ligKern, ibmfFont_);
     }
+    appliedCount += 1;
     touchedCurrent |= (p.faceIdx == ibmfFaceIdx_) && (p.glyphCode == ibmfGlyphCode_);
-  }
-  if (!selected.empty()) {
+    return true;
+  };
+
+  releaseKeyboard();
+  LinkedGlyphsDialog dialog(std::move(proposals), ibmfFont_, title, apply, this);
+  dialog.exec();
+  grabKeyboard();
+
+  if (appliedCount > 0) {
     fontChanged_ = true;
     updateCharactersList();
     if (touchedCurrent) loadGlyph(ibmfGlyphCode_);
