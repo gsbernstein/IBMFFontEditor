@@ -1082,7 +1082,7 @@ auto IBMFFontMod::showBitmap(QTextStream &stream, const BitmapPtr bitmap) const 
 auto IBMFFontMod::showBackupGlyphInfo(QTextStream &stream, GlyphCode i,
                                       const BackupGlyphInfoPtr g) const -> void {
   stream << "  [" << i << "]: "
-         << "codePoint: " << QString("U+%1").arg(g->codePoint, 5, 16, QChar('0'))
+         << "codePoint: " << QString("U+%1").arg(uint(g->codePoint), 5, 16, QChar('0'))
          << ", w: " << +g->bitmapWidth << ", h: " << +g->bitmapHeight
          << ", hoff: " << +g->horizontalOffset << ", voff: " << +g->verticalOffset
          << ", pktLen: " << +g->packetLength << ", adv: " << +((float)g->advance / 64.0)
@@ -1090,7 +1090,7 @@ auto IBMFFontMod::showBackupGlyphInfo(QTextStream &stream, GlyphCode i,
          << ", ligCnt: " << +g->ligCount << ", kernCnt: " << +g->kernCount;
 
   if (g->mainCodePoint != g->codePoint) {
-    stream << ", mainCodePoint: " << QString("U+%1").arg(g->mainCodePoint, 5, 16, QChar('0'));
+    stream << ", mainCodePoint: " << QString("U+%1").arg(uint(g->mainCodePoint), 5, 16, QChar('0'));
   }
   stream << Qt::endl;
 }
@@ -1098,7 +1098,7 @@ auto IBMFFontMod::showBackupGlyphInfo(QTextStream &stream, GlyphCode i,
 auto IBMFFontMod::showGlyphInfo(QTextStream &stream, GlyphCode i, const GlyphInfoPtr g) const
     -> void {
   stream << "  [" << i << "]: "
-         << "codePoint: " << QString("U+%1").arg(getUTF32(i), 5, 16, QChar('0'))
+         << "codePoint: " << QString("U+%1").arg(uint(getUTF32(i)), 5, 16, QChar('0'))
          << ", w: " << +g->bitmapWidth << ", h: " << +g->bitmapHeight
          << ", hoff: " << +g->horizontalOffset << ", voff: " << +g->verticalOffset
          << ", pktLen: " << +g->packetLength << ", adv: " << +((float)g->advance / 64.0)
@@ -1118,16 +1118,16 @@ auto IBMFFontMod::showBackupLigKerns(QTextStream &stream, BackupGlyphLigKernPtr 
     uint16_t i = 0;
     for (auto &lig : lk->ligSteps) {
       stream << "         [" << i << "]: "
-             << "NxtCodePoint: " << QString("U+%1").arg(lig.nextCodePoint, 5, 16, QChar('0'))
+             << "NxtCodePoint: " << QString("U+%1").arg(uint(lig.nextCodePoint), 5, 16, QChar('0'))
              << ", "
-             << "LigCodePoint: " << QString("U+%1").arg(lig.replacementCodePoint, 5, 16, QChar('0'))
+             << "LigCodePoint: " << QString("U+%1").arg(uint(lig.replacementCodePoint), 5, 16, QChar('0'))
              << Qt::endl;
       i += 1;
     }
 
     for (auto &kern : lk->kernSteps) {
       stream << "         [" << i << "]: "
-             << "NxtCodePoint: " << QString("U+%1").arg(kern.nextCodePoint, 5, 16, QChar('0'))
+             << "NxtCodePoint: " << QString("U+%1").arg(uint(kern.nextCodePoint), 5, 16, QChar('0'))
              << ", "
              << "Kern: " << (float)(kern.kern / 64.0) << Qt::endl;
       i += 1;

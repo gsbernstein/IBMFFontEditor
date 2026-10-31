@@ -232,7 +232,7 @@ auto IBMFTTFImport::loadTTF(FreeType &ft, FontParametersPtr fontParameters) -> b
             if (error != 0) {
               QMessageBox::critical(
                   nullptr, "FreeType issue",
-                  QString("Unable to load codePoint U+%1").arg(ch, 5, 16, QChar('0')));
+                  QString("Unable to load codePoint U+%1").arg(uint(ch), 5, 16, QChar('0')));
               return false;
             }
 
@@ -241,7 +241,7 @@ auto IBMFTTFImport::loadTTF(FreeType &ft, FontParametersPtr fontParameters) -> b
               if (error != 0) {
                 QMessageBox::critical(
                     nullptr, "FreeType issue",
-                    QString("Unable to render codePoint U+%1").arg(ch, 5, 16, QChar('0')));
+                    QString("Unable to render codePoint U+%1").arg(uint(ch), 5, 16, QChar('0')));
                 return false;
               }
             }

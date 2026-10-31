@@ -75,7 +75,7 @@ CharacterViewer::CharacterViewer(const IBMFDefs::CharCodes *chars, QString title
 
         item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
         item->setToolTip(
-            QString("Index: %1, Unicode: U+%2").arg(idx).arg((*chars)[idx], 4, 16, QChar('0')));
+            QString("Index: %1, Unicode: U+%2").arg(idx).arg(uint((*chars)[idx]), 4, 16, QChar('0')));
       } else {
         item->setFlags(Qt::NoItemFlags);
       }

@@ -247,7 +247,7 @@ void MainWindow::updateCharactersList() {
             }
             item->setData(Qt::EditRole, QChar(codePoint));
         }
-        item->setToolTip(QString("%1: U+%2").arg(idx).arg(codePoint, 5, 16, QChar('0')));
+        item->setToolTip(QString("%1: U+%2").arg(idx).arg(uint(codePoint), 5, 16, QChar('0')));
         item->setData(Qt::EditRole, QChar(codePoint));
       } else {
         item->setFlags(Qt::NoItemFlags);
@@ -872,7 +872,7 @@ void MainWindow::populateKernTable() {
     int      code      = ibmfGlyphLigKern_->kernSteps[i].nextGlyphCode;
     char32_t codePoint = ibmfFont_->getUTF32(code);
     ui->kernTable->item(i, 0)->setToolTip(
-        QString("%1: U+%2").arg(code).arg(codePoint, 4, 16, QChar('0')));
+        QString("%1: U+%2").arg(code).arg(uint(codePoint), 4, 16, QChar('0')));
     ui->kernTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
     ui->kernTable->item(i, 1)->setTextAlignment(Qt::AlignCenter);
   }
@@ -928,7 +928,7 @@ bool MainWindow::loadGlyph(uint16_t glyphCode) {
       }
 
       char32_t codePoint = ibmfFont_->getUTF32(glyphCode);
-      ui->currentCodePoint->setText(QString("U+%1").arg(codePoint, 5, 16, QChar('0')));
+      ui->currentCodePoint->setText(QString("U+%1").arg(uint(codePoint), 5, 16, QChar('0')));
 
       centerScrollBarPos();
       bitmapRenderer_->clearAndLoadBitmap(glyphCode, *bitmap, *ibmfFaceHeader_, *glyphInfo);
@@ -947,11 +947,11 @@ bool MainWindow::loadGlyph(uint16_t glyphCode) {
         int      code      = ibmfGlyphLigKern_->ligSteps[i].nextGlyphCode;
         char32_t codePoint = ibmfFont_->getUTF32(code);
         ui->ligTable->item(i, 0)->setToolTip(
-            QString("%1: U+%2").arg(code).arg(codePoint, 5, 16, QChar('0')));
+            QString("%1: U+%2").arg(code).arg(uint(codePoint), 5, 16, QChar('0')));
         code      = ibmfGlyphLigKern_->ligSteps[i].replacementGlyphCode;
         codePoint = ibmfFont_->getUTF32(code);
         ui->ligTable->item(i, 1)->setToolTip(
-            QString("%1: U+%2").arg(code).arg(codePoint, 5, 16, QChar('0')));
+            QString("%1: U+%2").arg(code).arg(uint(codePoint), 5, 16, QChar('0')));
         ui->ligTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
         ui->ligTable->item(i, 1)->setTextAlignment(Qt::AlignCenter);
       }
@@ -1413,7 +1413,7 @@ void MainWindow::on_actionC_h_File_triggered() {
                 newLine = false;
               }
 
-              out << " 0x" << QString("%1").arg(+byte, 2, 16, QChar('0')) << ",";
+              out << " 0x" << QString("%1").arg(uint(+byte), 2, 16, QChar('0')) << ",";
 
               if (++count == 12) {
                 out << Qt::endl;

@@ -77,7 +77,7 @@ CharacterSelector::CharacterSelector(const IBMFDefs::CharCodes *chars, QString t
         item->setData(Qt::EditRole, QChar((*chars)[idx]));
 
         item->setToolTip(
-            QString("Index: %1, Unicode: U+%2").arg(idx).arg((*chars)[idx], 4, 16, QChar('0')));
+            QString("Index: %1, Unicode: U+%2").arg(idx).arg(uint((*chars)[idx]), 4, 16, QChar('0')));
       } else {
         item->setFlags(Qt::NoItemFlags);
       }
