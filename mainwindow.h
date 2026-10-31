@@ -145,6 +145,7 @@ private slots:
   void     adjustRecentsForCurrentFile();
   bool     checkFontChanged();
   bool     saveFont(bool askToConfirmName);
+  bool     writeCHeader(const QString &ibmfFilePath, const QString &headerFilePath);
   void     newFontLoaded(QString filePath);
   bool     openFont(QString filePath);
   bool     loadFont(QFile &file);

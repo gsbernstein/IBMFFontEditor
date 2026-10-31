@@ -456,24 +456,14 @@ void MainWindow::bitmapChanged(const Bitmap &bitmap, const QPoint &originOffsets
 bool MainWindow::saveFont(bool askToConfirmName) {
   saveGlyph();
   saveFace();
-  QString                   newFilePath;
-  static QRegularExpression theDateTimeWithExt(
-      "_\\d\\d\\d\\d\\d\\d\\d\\d_\\d\\d\\d\\d\\d\\d\\.ibmf$");
-  QRegularExpressionMatch match = theDateTimeWithExt.match(currentFilePath_);
-  if (!match.hasMatch()) {
-    static QRegularExpression extension("\\.ibmf$");
-    match = extension.match(currentFilePath_);
-  }
+  QString newFilePath;
   releaseKeyboard();
-  if (match.hasMatch()) {
-    // QMessageBox::information(this, "match:", match.captured());
-    QString newExt   = "_" + QDateTime::currentDateTimeUtc().toString("yyyyMMdd_hhmmss") + ".ibmf";
-    QString filePath = currentFilePath_;
-    filePath.replace(match.captured(), newExt);
+  if (currentFilePath_.endsWith(".ibmf")) {
     if (askToConfirmName) {
-      newFilePath = QFileDialog::getSaveFileName(this, "Save IBMF Font File", filePath, "*.ibmf");
+      newFilePath =
+          QFileDialog::getSaveFileName(this, "Save IBMF Font File", currentFilePath_, "*.ibmf");
     } else {
-      newFilePath = filePath;
+      newFilePath = currentFilePath_;
     }
   } else {
     newFilePath = QFileDialog::getSaveFileName(this, "Save NEW IBMF Font File", "*.ibmf");
@@ -534,6 +524,15 @@ bool MainWindow::saveFont(bool askToConfirmName) {
           "Not able to save font! Please ensure that the following path is writeable:\n\n" +
               newFilePath);
       result = false;
+    }
+  }
+
+  // Keep a sibling C header (e.g. Font.h next to Font.ibmf) in sync on every save
+  if (result) {
+    QFileInfo fi(newFilePath);
+    QString   headerFilePath = fi.absolutePath() + "/" + fi.completeBaseName() + ".h";
+    if (QFile::exists(headerFilePath)) {
+      result = writeCHeader(newFilePath, headerFilePath);
     }
   }
   return result;
@@ -1372,79 +1371,76 @@ void MainWindow::on_actionC_h_File_triggered() {
           QFileDialog::getSaveFileName(this, "Save C Header Font File", headerFilePath, "*.h");
       grabKeyboard();
 
-      if (!newFilePath.isEmpty()) {
-        info                  = QFileInfo(newFilePath);
-        QString baseName      = info.completeBaseName();
-        QString upperBaseName = info.completeBaseName().toUpper();
-
-        QFile outFile;
-        QFile inFile;
-        inFile.setFileName(inFilePath);
-        outFile.setFileName(newFilePath);
-
-        if (inFile.open(QIODevice::ReadOnly)) {
-          QByteArray content = inFile.readAll();
-          inFile.close();
-
-          if (outFile.open(QIODevice::WriteOnly)) {
-            QTextStream out(&outFile);
-
-            QDateTime UTC(QDateTime::currentDateTimeUtc());
-
-            out << "// ----- IBMF Binary Font " << baseName << " -----" << Qt::endl;
-            out << "//" << Qt::endl;
-            out << "//  Date: " << UTC.toString() << Qt::endl;
-            out << "//" << Qt::endl;
-            out << "// Generated from the IBMFFontEditor Version " << IBMF_VERSION << Qt::endl;
-            out << "//" << Qt::endl;
-            out << Qt::endl;
-            out << "#pragma once" << Qt::endl;
-            out << Qt::endl;
-            out << "const unsigned int " << upperBaseName << "_IBMF_LEN = " << Qt::dec
-                << content.size() << ";" << Qt::endl;
-            out << "const uint8_t " << upperBaseName << "_IBMF[] = {" << Qt::endl;
-
-            int  count   = 0;
-            bool newLine = true;
-
-            for (uint8_t byte : content) {
-              if (newLine) {
-                out << "   ";
-                newLine = false;
-              }
-
-              out << " 0x" << QString("%1").arg(uint(+byte), 2, 16, QChar('0')) << ",";
-
-              if (++count == 16) {
-                out << Qt::endl;
-                newLine = true;
-                count   = 0;
-              }
-            }
-
-            if (count != 0) {
-              out << Qt::endl;
-            }
-
-            out << "};" << Qt::endl;
-
-            outFile.close();
-
-            QMessageBox::information(
-                this, "Export Completed",
-                QString("Export to a C Header Format of %1 completed!").arg(baseName));
-
-          } else {
-            QMessageBox::critical(nullptr, "CRITICAL ERROR",
-                                  QString("Unable to write file %1").arg(newFilePath));
-          }
-        } else {
-          QMessageBox::critical(nullptr, "CRITICAL ERROR",
-                                QString("Unable to read file %1").arg(inFilePath));
-        }
+      if (!newFilePath.isEmpty() && writeCHeader(inFilePath, newFilePath)) {
+        QMessageBox::information(this, "Export Completed",
+                                 QString("Export to a C Header Format of %1 completed!")
+                                     .arg(QFileInfo(newFilePath).completeBaseName()));
       }
     }
   }
+}
+
+bool MainWindow::writeCHeader(const QString &ibmfFilePath, const QString &headerFilePath) {
+  QFile inFile(ibmfFilePath);
+  if (!inFile.open(QIODevice::ReadOnly)) {
+    QMessageBox::critical(this, "CRITICAL ERROR",
+                          QString("Unable to read file %1").arg(ibmfFilePath));
+    return false;
+  }
+  QByteArray content = inFile.readAll();
+  inFile.close();
+
+  QFile outFile(headerFilePath);
+  if (!outFile.open(QIODevice::WriteOnly)) {
+    QMessageBox::critical(this, "CRITICAL ERROR",
+                          QString("Unable to write file %1").arg(headerFilePath));
+    return false;
+  }
+
+  QFileInfo   info(headerFilePath);
+  QString     baseName      = info.completeBaseName();
+  QString     upperBaseName = baseName.toUpper();
+  QTextStream out(&outFile);
+  QDateTime   UTC(QDateTime::currentDateTimeUtc());
+
+  out << "// ----- IBMF Binary Font " << baseName << " -----" << Qt::endl;
+  out << "//" << Qt::endl;
+  out << "//  Date: " << UTC.toString() << Qt::endl;
+  out << "//" << Qt::endl;
+  out << "// Generated from the IBMFFontEditor Version " << IBMF_VERSION << Qt::endl;
+  out << "//" << Qt::endl;
+  out << Qt::endl;
+  out << "#pragma once" << Qt::endl;
+  out << Qt::endl;
+  out << "const unsigned int " << upperBaseName << "_IBMF_LEN = " << Qt::dec << content.size()
+      << ";" << Qt::endl;
+  out << "const uint8_t " << upperBaseName << "_IBMF[] = {" << Qt::endl;
+
+  int  count   = 0;
+  bool newLine = true;
+
+  for (uint8_t byte : content) {
+    if (newLine) {
+      out << "   ";
+      newLine = false;
+    }
+
+    out << " 0x" << QString("%1").arg(uint(+byte), 2, 16, QChar('0')) << ",";
+
+    if (++count == 16) {
+      out << Qt::endl;
+      newLine = true;
+      count   = 0;
+    }
+  }
+
+  if (count != 0) {
+    out << Qt::endl;
+  }
+
+  out << "};" << Qt::endl;
+  outFile.close();
+  return true;
 }
 
 void MainWindow::on_zoomToFitButton_clicked() {
