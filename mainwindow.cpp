@@ -1415,7 +1415,7 @@ void MainWindow::on_actionC_h_File_triggered() {
 
               out << " 0x" << QString("%1").arg(uint(+byte), 2, 16, QChar('0')) << ",";
 
-              if (++count == 12) {
+              if (++count == 16) {
                 out << Qt::endl;
                 newLine = true;
                 count   = 0;
