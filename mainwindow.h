@@ -18,6 +18,7 @@
 #include "bitmapRenderer.h"
 #include "drawingSpace.h"
 #include "freeType.h"
+#include "linkedGlyphs.h"
 
 #define IBMF_VERSION "0.90.0"
 
@@ -97,6 +98,8 @@ private slots:
   void on_after0Radio_toggled(bool checked);
   void on_after1Radio_toggled(bool checked);
   void on_actionRecompute_Ligatures_triggered();
+  void on_actionPropagate_Linked_Glyphs_toggled(bool checked);
+  void on_actionPropagate_From_Reference_triggered();
   void characterListUserGlyphClicked(int glyphCode);
 
   private:
@@ -146,6 +149,7 @@ private slots:
   bool     checkFontChanged();
   bool     saveFont(bool askToConfirmName);
   bool     writeCHeader(const QString &ibmfFilePath, const QString &headerFilePath);
+  void     reviewLinkedProposals(std::vector<LinkedGlyphProposal> proposals, const QString &title);
   void     newFontLoaded(QString filePath);
   bool     openFont(QString filePath);
   bool     loadFont(QFile &file);

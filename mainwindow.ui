@@ -1640,6 +1640,9 @@
     <addaction name="actionDump_Modif_Content_With_Glyphs_Bitmap"/>
     <addaction name="separator"/>
     <addaction name="actionRecompute_Ligatures"/>
+    <addaction name="separator"/>
+    <addaction name="actionPropagate_Linked_Glyphs"/>
+    <addaction name="actionPropagate_From_Reference"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="editMenu"/>
@@ -1739,6 +1742,28 @@
   <action name="actionRecompute_Ligatures">
    <property name="text">
     <string>Recompute Ligatures</string>
+   </property>
+  </action>
+  <action name="actionPropagate_Linked_Glyphs">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Propagate Edits to Linked Glyphs</string>
+   </property>
+   <property name="toolTip">
+    <string>After editing a base letter (e.g. e), offer to apply the same pixel changes to its linked letters (é, è, ê, ...)</string>
+   </property>
+  </action>
+  <action name="actionPropagate_From_Reference">
+   <property name="text">
+    <string>Propagate Changes from Reference Font...</string>
+   </property>
+   <property name="toolTip">
+    <string>Compare base letters against a reference font (e.g. the font before your edits) and apply their changes to linked letters</string>
    </property>
   </action>
  </widget>

@@ -363,6 +363,8 @@ void MainWindow::readSettings() {
   }
 
   ui->plainTextEdit->setPlainText(settings.value("ProofingText").toString());
+  ui->actionPropagate_Linked_Glyphs->setChecked(
+      settings.value("PropagateLinkedGlyphs", true).toBool());
   ui->autoKernCheckBox->setChecked(settings.value("ProofingOpticalKern").toBool());
   ui->normalKernCheckBox->setChecked(settings.value("ProofingNormalKern").toBool());
   ui->pixelSizeCombo->setCurrentIndex(settings.value("ProofingPixelSize").toInt());
@@ -844,6 +846,12 @@ void MainWindow::saveGlyph() {
 
     glyphInfo->rleMetrics.afterAddedOptKern = ui->after1Radio->isChecked();
 
+    GlyphInfoPtr    oldGlyphInfo;
+    BitmapPtr       oldBitmap;
+    GlyphLigKernPtr oldLigKern;
+    bool            haveOldGlyph =
+        ibmfFont_->getGlyph(ibmfFaceIdx_, ibmfGlyphCode_, oldGlyphInfo, oldBitmap, oldLigKern);
+
     if (ibmfFont_->saveGlyph(ibmfFaceIdx_, ibmfGlyphCode_, glyphInfo, theBitmap,
                              ibmfGlyphLigKern_)) {
       glyphChanged_ = false;
@@ -853,6 +861,13 @@ void MainWindow::saveGlyph() {
       } else {
         QMessageBox::critical(this, "CRITICAL ERROR",
                               "Unable to save Glyph modification into Font Mofifications File!");
+      }
+      if (haveOldGlyph && ui->actionPropagate_Linked_Glyphs->isChecked()) {
+        auto proposals = LinkedGlyphs::propose(ibmfFont_, ibmfFaceIdx_, ibmfGlyphCode_, *oldBitmap,
+                                               *oldGlyphInfo, *theBitmap, *glyphInfo);
+        if (!proposals.empty()) {
+          reviewLinkedProposals(proposals, "Update Linked Glyphs");
+        }
       }
     } else {
       QMessageBox::critical(this, "CRITICAL ERROR", "Unable to save Glyph modification into Font!");
@@ -1767,6 +1782,72 @@ void MainWindow::on_actionRecompute_Ligatures_triggered()
 
     QMessageBox::information(
         this, "Ligatures Recompute Completed", "Ligatures Recompute Completed");
+  }
+}
+
+void MainWindow::on_actionPropagate_Linked_Glyphs_toggled(bool checked) {
+  QSettings settings("ibmf", "IBMFEditor");
+  settings.setValue("PropagateLinkedGlyphs", checked);
+}
+
+void MainWindow::on_actionPropagate_From_Reference_triggered() {
+  if ((ibmfFont_ == nullptr) || !ibmfFont_->isInitialized()) return;
+  saveGlyph();
+
+  releaseKeyboard();
+  QString referencePath = QFileDialog::getOpenFileName(
+      this, "Reference IBMF Font (the font before your edits)",
+      QFileInfo(currentFilePath_).absolutePath(), "*.ibmf");
+  grabKeyboard();
+  if (referencePath.isEmpty()) return;
+
+  QFile file(referencePath);
+  if (!file.open(QIODevice::ReadOnly)) {
+    QMessageBox::warning(this, "Warning", "Unable to open file " + file.errorString());
+    return;
+  }
+  QByteArray content = file.readAll();
+  file.close();
+  auto reference = IBMFFontModPtr(new IBMFFontMod((uint8_t *)content.data(), content.size()));
+  if (!reference->isInitialized()) {
+    QMessageBox::warning(this, "Warning", "Not a valid IBMF font: " + referencePath);
+    return;
+  }
+
+  auto proposals = LinkedGlyphs::proposeFromReference(ibmfFont_, reference);
+  if (proposals.empty()) {
+    QMessageBox::information(this, "Propagate Changes",
+                             "No linked glyphs need updating from this reference.");
+    return;
+  }
+  reviewLinkedProposals(proposals, "Propagate Changes from " + QFileInfo(referencePath).fileName());
+}
+
+void MainWindow::reviewLinkedProposals(std::vector<LinkedGlyphProposal> proposals,
+                                       const QString &title) {
+  releaseKeyboard();
+  LinkedGlyphsDialog dialog(std::move(proposals), ibmfFont_, title, this);
+  bool               accepted = dialog.exec() == QDialog::Accepted;
+  grabKeyboard();
+  if (!accepted) return;
+
+  auto selected        = dialog.selectedProposals();
+  bool touchedCurrent  = false;
+  bool backupAvailable = (ibmfBackup_ != nullptr) && ibmfBackup_->isInitialized();
+  for (auto &p : selected) {
+    if (!ibmfFont_->saveGlyph(p.faceIdx, p.glyphCode, p.newInfo, p.newBitmap, p.ligKern)) {
+      QMessageBox::critical(this, "CRITICAL ERROR", "Unable to save Glyph modification into Font!");
+      continue;
+    }
+    if (backupAvailable) {
+      ibmfBackup_->saveGlyph(p.faceIdx, p.glyphCode, p.newInfo, p.newBitmap, p.ligKern, ibmfFont_);
+    }
+    touchedCurrent |= (p.faceIdx == ibmfFaceIdx_) && (p.glyphCode == ibmfGlyphCode_);
+  }
+  if (!selected.empty()) {
+    fontChanged_ = true;
+    updateCharactersList();
+    if (touchedCurrent) loadGlyph(ibmfGlyphCode_);
   }
 }
 

@@ -76,6 +76,8 @@ set(PROJECT_SOURCES
         drawingSpace.h
         drawingSpace.cpp
         fix16Delegate.h
+        linkedGlyphs.h
+        linkedGlyphs.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
